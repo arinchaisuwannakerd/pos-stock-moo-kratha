@@ -1,0 +1,2948 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-pos-stock-baannongfoke-2026",
+    "name": "POS & Stock — ร้านย่างให้หมูกระทะ บ้านน้องโฟค กาญจนบุรี",
+    "description": "# ระบบจัดการร้านย่างให้หมูกระทะ บ้านน้องโฟค กาญจนบุรี\n\nModule: การจัดการการขายหน้าร้านและการตัดสต็อกวัตถุดิบ (POS & Inventory Management)\n\n## วิธีใช้\n1. เลือก Environment เป็น **POS & Stock — Local**\n2. รัน `1. Authentication > เข้าสู่ระบบ (เจ้าของร้าน)` — token จะถูกเก็บใน `{{token}}` อัตโนมัติ\n3. เรียก request อื่น ๆ ได้เลย (ใช้ Bearer token จากตัวแปรอัตโนมัติ)\n\nหรือกด **Run collection** เพื่อทดสอบทั้งชุดตามลำดับตั้งแต่เปิดบิล → สั่งอาหาร → ตัดสต็อก → ชำระเงิน → รายงาน\n\n## บัญชีทดสอบ\n| ผู้ใช้ | รหัสผ่าน | สิทธิ์ |\n|---|---|---|\n| owner | owner123 | เจ้าของร้าน (ทุกเมนู) |\n| staff1 | staff123 | พนักงาน (ขายหน้าร้าน) |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4000/api"
+    },
+    {
+      "key": "table_no",
+      "value": "T05"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. ตรวจสอบระบบ",
+      "item": [
+        {
+          "name": "Health check — API + ฐานข้อมูลพร้อมหรือไม่",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "ใช้ยืนยันว่า Express ทำงานและเชื่อมต่อ PostgreSQL ได้ ควรเรียกอันนี้ก่อนเสมอ",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ok = true\", () => pm.expect(pm.response.json().ok).to.be.true);",
+                  "pm.test(\"เชื่อมต่อฐานข้อมูลได้\", () => pm.expect(pm.response.json().database.connected).to.be.true);",
+                  "console.log(\"PostgreSQL:\", pm.response.json().database.version);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication (เข้าสู่ระบบ)",
+      "item": [
+        {
+          "name": "เข้าสู่ระบบ (เจ้าของร้าน)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"owner\",\n  \"password\": \"owner123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "รับ JWT แล้วเก็บลงตัวแปร {{token}} อัตโนมัติ — **รันอันนี้ก่อน**",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ok = true\", () => pm.expect(pm.response.json().ok).to.be.true);",
+                  "const j = pm.response.json();",
+                  "pm.test(\"ได้รับ token\", () => pm.expect(j.token).to.be.a(\"string\"));",
+                  "pm.test(\"สิทธิ์เป็น OWNER\", () => pm.expect(j.user.role).to.eql(\"OWNER\"));",
+                  "pm.environment.set(\"token\", j.token);",
+                  "pm.collectionVariables.set(\"token\", j.token);",
+                  "console.log(\"เข้าสู่ระบบเป็น:\", j.user.full_name);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เข้าสู่ระบบ (พนักงาน)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"staff1\",\n  \"password\": \"staff123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "เก็บ token พนักงานไว้ใน {{staff_token}} สำหรับทดสอบสิทธิ์",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.environment.set(\"staff_token\", pm.response.json().token);",
+                  "pm.collectionVariables.set(\"staff_token\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เข้าสู่ระบบ — รหัสผ่านผิด (ต้องได้ 401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"owner\",\n  \"password\": \"wrong-password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"ok = false\", () => pm.expect(pm.response.json().ok).to.be.false);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ข้อมูลผู้ใช้ที่ล็อกอินอยู่",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายชื่อผู้ใช้ทั้งหมด (เจ้าของร้าน)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "users"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ค่าตั้งค่าร้าน",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings"
+              ]
+            },
+            "description": "ชื่อร้าน ที่อยู่ VAT พร้อมเพย์ — ต้องล็อกอินก่อน จึงวางไว้หลัง request เข้าสู่ระบบ"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. ผังโต๊ะ (สืบค้นสถานะโต๊ะ 20 โต๊ะ)",
+      "item": [
+        {
+          "name": "ผังสถานะโต๊ะทั้งหมด",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tables",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            },
+            "description": "แสดงผังสถานะโต๊ะทั้ง 20 โต๊ะ (ว่าง / กำลังใช้งาน / รอชำระเงิน) พร้อมยอดเงินคงค้างรายโต๊ะ"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"มีโต๊ะครบ 20 โต๊ะ\", () => pm.expect(j.data).to.have.lengthOf(20));",
+                  "pm.test(\"มีสรุปจำนวนตามสถานะ\", () => pm.expect(j.summary).to.have.property(\"FREE\"));",
+                  "console.log(\"ว่าง:\", j.summary.FREE, \"| ใช้งาน:\", j.summary.OCCUPIED, \"| รอชำระ:\", j.summary.BILLING);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กรองเฉพาะโต๊ะว่าง",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tables?status=FREE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tables"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "FREE"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กรองเฉพาะโต๊ะที่รอชำระเงิน",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tables?status=BILLING",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tables"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "BILLING"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ดูโต๊ะรายตัว",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tables/5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tables",
+                "5"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "แก้ไขข้อมูลโต๊ะ (เจ้าของร้าน)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seats\": 6,\n  \"zone\": \"โซนในร้าน (แอร์)\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tables/5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tables",
+                "5"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. เมนูอาหาร",
+      "item": [
+        {
+          "name": "หมวดหมู่เมนู",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/menu/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu",
+                "categories"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายการเมนูทั้งหมด (พร้อมจำนวนที่ทำได้ตามสต็อก)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/menu?with_stock=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu"
+              ],
+              "query": [
+                {
+                  "key": "with_stock",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "max_servable = จำนวนสูงสุดที่ทำได้จากวัตถุดิบคงเหลือ ณ ตอนนี้"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"มีเมนูอย่างน้อย 30 รายการ\", () => pm.expect(pm.response.json().count).to.be.at.least(30));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กรองเฉพาะหมวดหมูกระทะ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/menu?category=BBQ",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "BBQ"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ค้นหาเมนู",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/menu?q=หมู",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "หมู"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ดูเมนู 1 รายการ + สูตรอาหาร BOM",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/menu/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu",
+                "1"
+              ]
+            },
+            "description": "แสดงสูตร (recipe) ว่าเมนูนี้ใช้วัตถุดิบอะไรบ้าง อย่างละเท่าไร พร้อมต้นทุนและกำไรต่อจาน"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"มีสูตร BOM\", () => pm.expect(d.recipe.length).to.be.above(0));",
+                  "console.log(d.name_th, \"| ราคาขาย\", d.price, \"| ต้นทุน\", d.food_cost, \"| กำไร\", d.margin);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เพิ่มเมนูใหม่ พร้อมสูตร BOM (เจ้าของร้าน)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"MN-B99\",\n  \"category_code\": \"BBQ\",\n  \"name_th\": \"หมูสามชั้นสไลซ์\",\n  \"price\": 99,\n  \"unit\": \"จาน\",\n  \"description\": \"หมูสามชั้นหั่นบางพิเศษ\",\n  \"recipe\": [\n    {\n      \"ingredient_sku\": \"ING-M01\",\n      \"qty_per_unit\": 0.2\n    },\n    {\n      \"ingredient_sku\": \"ING-O01\",\n      \"qty_per_unit\": 0.03\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/menu",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สร้างเมนูสำเร็จ (201) หรือมีอยู่แล้ว (409)\", () => pm.expect([201,409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "แก้ไขราคาเมนู",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 85\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/menu/4",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu",
+                "4"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กำหนดสูตร BOM ใหม่ทั้งชุด",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipe\": [\n    {\n      \"ingredient_sku\": \"ING-M01\",\n      \"qty_per_unit\": 0.22\n    },\n    {\n      \"ingredient_sku\": \"ING-O01\",\n      \"qty_per_unit\": 0.03\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/menu/4/recipe",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "menu",
+                "4",
+                "recipe"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. วัตถุดิบคงเหลือ (Real-time)",
+      "item": [
+        {
+          "name": "วัตถุดิบคงเหลือทั้งหมด",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients"
+              ]
+            },
+            "description": "แสดงปริมาณวัตถุดิบคงเหลือจริงในคลังแบบ Real-time (เนื้อสัตว์ ผัก เครื่องดื่ม น้ำแข็ง)"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"มีสรุปมูลค่าคงคลัง\", () => pm.expect(j.summary).to.have.property(\"stock_value\"));",
+                  "console.log(\"มูลค่าคงคลังรวม:\", j.summary.stock_value, \"บาท | ใกล้หมด:\", j.summary.low, \"รายการ\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กรองเฉพาะเนื้อสัตว์",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients?grp=MEAT",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients"
+              ],
+              "query": [
+                {
+                  "key": "grp",
+                  "value": "MEAT"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กรองเฉพาะผัก",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients?grp=VEGETABLE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients"
+              ],
+              "query": [
+                {
+                  "key": "grp",
+                  "value": "VEGETABLE"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กรองเฉพาะเครื่องดื่ม",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients?grp=DRINK",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients"
+              ],
+              "query": [
+                {
+                  "key": "grp",
+                  "value": "DRINK"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "กรองเฉพาะน้ำแข็ง",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients?grp=ICE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients"
+              ],
+              "query": [
+                {
+                  "key": "grp",
+                  "value": "ICE"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ดูวัตถุดิบรายตัว + ประวัติการเคลื่อนไหว",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients",
+                "1"
+              ]
+            },
+            "description": "แสดง ledger ย้อนหลัง 50 รายการ และเมนูที่ใช้วัตถุดิบนี้"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เพิ่มวัตถุดิบใหม่ (เจ้าของร้าน)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"ING-M99\",\n  \"name_th\": \"หมูสามชั้น\",\n  \"grp\": \"MEAT\",\n  \"unit\": \"กก.\",\n  \"qty_on_hand\": 10,\n  \"min_qty\": 4,\n  \"cost_per_unit\": 180\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingredients",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 หรือ 409\", () => pm.expect([201,409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "แก้ไขจุดสั่งซื้อขั้นต่ำ",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"min_qty\": 12\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ingredients/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. ขายหน้าร้าน — Flow หลัก (รันตามลำดับ)",
+      "description": "ลำดับการทำงานจริง: เปิดบิล → สั่งอาหาร → ตัดสต็อกอัตโนมัติ → สั่งเพิ่ม → เช็คบิล → ชำระเงิน → ใบเสร็จ",
+      "item": [
+        {
+          "name": "5.1 บันทึกสต็อกหมูก่อนขาย (ไว้เทียบทีหลัง)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.environment.set(\"pork_before\", pm.response.json().data.qty_on_hand);",
+                  "pm.collectionVariables.set(\"pork_before\", pm.response.json().data.qty_on_hand);",
+                  "console.log(\"หมูสไลซ์ก่อนขาย:\", pm.response.json().data.qty_on_hand, \"กก.\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 เปิดบิลโต๊ะ + สั่งชุดหมูกระทะ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_no\": \"{{table_no}}\",\n  \"guest_count\": 4,\n  \"items\": [\n    {\n      \"menu_sku\": \"MN-B02\",\n      \"qty\": 1,\n      \"note\": \"เสิร์ฟพร้อมกัน\"\n    },\n    {\n      \"menu_sku\": \"MN-D02\",\n      \"qty\": 4\n    },\n    {\n      \"menu_sku\": \"MN-I01\",\n      \"qty\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "เปิดบิลใหม่ให้โต๊ะ พร้อมสั่งอาหารรอบแรก ระบบตัดสต็อกตามสูตร BOM ทันที"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 201\", () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.environment.set(\"order_id\", j.order.id);",
+                  "pm.collectionVariables.set(\"order_id\", j.order.id);",
+                  "pm.environment.set(\"order_no\", j.order.order_no);",
+                  "pm.collectionVariables.set(\"order_no\", j.order.order_no);",
+                  "pm.test(\"บิลสถานะ OPEN\", () => pm.expect(j.order.status).to.eql(\"OPEN\"));",
+                  "pm.test(\"ยอดบิล = 549 + 100 + 20 = 669\", () => pm.expect(j.order.grand_total).to.eql(669));",
+                  "pm.test(\"มีรายการอาหาร 3 บรรทัด\", () => pm.expect(j.order.items).to.have.lengthOf(3));",
+                  "console.log(\"เปิดบิล\", j.order.order_no, \"ยอด\", j.order.grand_total, \"บาท\");",
+                  "if (j.stock_alerts.length) console.log(\"แจ้งเตือนวัตถุดิบใกล้หมด:\", j.stock_alerts.map(a => a.name_th).join(\", \"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 ตรวจว่าตัดสต็อกหมูจริง (BOM ทำงาน)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ingredients/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ingredients",
+                "1"
+              ]
+            },
+            "description": "ชุดกลางใช้หมูสไลซ์ 0.8 กก. ยอดคงเหลือต้องลดลงเท่านั้นพอดี"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const before = Number(pm.variables.get(\"pork_before\"));",
+                  "const after = pm.response.json().data.qty_on_hand;",
+                  "pm.test(\"หมูสไลซ์ลดลง 0.8 กก. ตามสูตร BOM\", () => pm.expect(Math.round((before - after) * 1000) / 1000).to.eql(0.8));",
+                  "console.log(\"หมูสไลซ์:\", before, \"->\", after, \"กก.\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 สั่งอาหารเพิ่มระหว่างทาน",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"menu_sku\": \"MN-B04\",\n      \"qty\": 2,\n      \"note\": \"ไม่ใส่พริก\"\n    },\n    {\n      \"menu_sku\": \"MN-B13\",\n      \"qty\": 1\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "items"
+              ]
+            },
+            "description": "รองรับการสั่งอาหารเพิ่มระหว่างทาน โดยแยกเป็น round_no คนละรอบ"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 201\", () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"ยอดเพิ่มเป็น 669 + 158 + 49 = 876\", () => pm.expect(j.order.grand_total).to.eql(876));",
+                  "pm.test(\"มีรายการรอบที่ 2\", () => pm.expect(j.order.items.some(i => i.round_no === 2)).to.be.true);",
+                  "pm.environment.set(\"item_id\", j.order.items.find(i => i.sku === \"MN-B04\").id);",
+                  "pm.collectionVariables.set(\"item_id\", j.order.items.find(i => i.sku === \"MN-B04\").id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.5 แก้จำนวนรายการ (ปรับสต็อกตามส่วนต่าง)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qty\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/items/{{item_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "items",
+                "{{item_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ยอดเป็น 876 + 79 = 955\", () => pm.expect(pm.response.json().order.grand_total).to.eql(955));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.6 ยกเลิกรายการ (คืนสต็อกอัตโนมัติ)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/items/{{item_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "items",
+                "{{item_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ยอดลดเหลือ 955 - 237 = 718\", () => pm.expect(pm.response.json().data.grand_total).to.eql(718));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.7 สั่งเกินวัตถุดิบที่มี (ต้องถูกปฏิเสธ 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"menu_sku\": \"MN-B08\",\n      \"qty\": 999\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "items"
+              ]
+            },
+            "description": "ระบบต้องกันไม่ให้ขายเกินวัตถุดิบที่มีจริง และบอกว่าขาดอะไร"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"แจ้งว่าวัตถุดิบไม่พอ\", () => pm.expect(pm.response.json().error).to.include(\"ไม่พอ\"));",
+                  "console.log(pm.response.json().error);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.8 ให้ส่วนลด",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"discount\": 18\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ยอดสุทธิ = 718 - 18 = 700\", () => pm.expect(pm.response.json().data.grand_total).to.eql(700));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.9 เรียกเช็คบิล (โต๊ะ -> รอชำระเงิน)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/bill",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "bill"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"สถานะเป็น BILLING\", () => pm.expect(pm.response.json().data.status).to.eql(\"BILLING\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.10 สร้าง QR พร้อมเพย์",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payments/qr/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "qr",
+                "{{order_id}}"
+              ]
+            },
+            "description": "คืนสตริงมาตรฐาน EMVCo นำไป render เป็นภาพ QR ให้ลูกค้าสแกนจ่ายได้"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"payload เป็นรูปแบบ EMVCo\", () => pm.expect(d.qr_payload).to.match(/^000201/));",
+                  "pm.test(\"ระบุยอดเงินใน QR\", () => pm.expect(d.qr_payload).to.include(\"700.00\"));",
+                  "console.log(\"QR:\", d.qr_payload);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.11 ชำระเงินสด + ทอนเงิน",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{order_id}}\",\n  \"method\": \"CASH\",\n  \"received\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments"
+              ]
+            },
+            "description": "รองรับเงินสด / โอนเงิน / QR Code — ถ้าไม่ส่ง amount ระบบจะคิดเต็มยอดคงเหลือ"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 201\", () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"เงินทอน = 300\", () => pm.expect(j.payment.change_amount).to.eql(300));",
+                  "pm.test(\"บิลปิดเป็น PAID\", () => pm.expect(j.order.status).to.eql(\"PAID\"));",
+                  "pm.test(\"ได้เลขใบเสร็จ\", () => pm.expect(j.payment.receipt_no).to.match(/^RC\\d{8}-\\d{4}$/));",
+                  "console.log(\"ใบเสร็จเลขที่\", j.payment.receipt_no, \"| ทอน\", j.payment.change_amount, \"บาท\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.12 ใบเสร็จรับเงิน (สำหรับพิมพ์)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payments/receipt/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments",
+                "receipt",
+                "{{order_id}}"
+              ]
+            },
+            "description": "ข้อมูลครบสำหรับพิมพ์ใบเสร็จ — หัวร้าน รายการ ยอดรวม วิธีชำระ เงินทอน"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"มีหัวใบเสร็จ\", () => pm.expect(d.shop.name).to.be.a(\"string\"));",
+                  "pm.test(\"มีรายการอาหาร\", () => pm.expect(d.items.length).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.13 ตรวจว่าโต๊ะกลับมาว่างแล้ว",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tables",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const t = pm.response.json().data.find(x => x.table_no === pm.variables.get(\"table_no\"));",
+                  "pm.test(\"โต๊ะกลับเป็น FREE หลังปิดบิล\", () => pm.expect(t.status).to.eql(\"FREE\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. ออเดอร์ (ค้นหา / ยกเลิก)",
+      "item": [
+        {
+          "name": "รายการบิลทั้งหมด",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders?limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เฉพาะบิลที่เปิดอยู่",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders?status=OPEN",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "OPEN"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เฉพาะบิลที่ชำระแล้ว",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders?status=PAID",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PAID"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ดูบิลรายใบ (พร้อมรายการ + การชำระ)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ยกเลิกทั้งบิล (คืนสต็อกทุกรายการ)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"ลูกค้ายกเลิก\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/1/void",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "1",
+                "void"
+              ]
+            },
+            "description": "คืนวัตถุดิบทุกรายการกลับคลัง และปล่อยโต๊ะให้ว่าง"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 หรือ 409 (ถ้าบิลปิดไปแล้ว)\", () => pm.expect([200,409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. คลังวัตถุดิบ (รับเข้า / เบิกใช้ / ปรับยอด)",
+      "item": [
+        {
+          "name": "บันทึกรับเข้าวัตถุดิบ (Stock In)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplier\": \"ตลาดสดเทศบาลกาญจนบุรี\",\n  \"note\": \"ของเข้ารอบเช้า\",\n  \"lines\": [\n    {\n      \"ingredient_sku\": \"ING-M01\",\n      \"qty\": 20,\n      \"unit_cost\": 150\n    },\n    {\n      \"ingredient_sku\": \"ING-V01\",\n      \"qty\": 15,\n      \"unit_cost\": 30\n    },\n    {\n      \"ingredient_sku\": \"ING-D02\",\n      \"qty\": 48,\n      \"unit_cost\": 14\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stock/in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "in"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 201\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json().data;",
+                  "pm.environment.set(\"stock_doc_id\", d.id);",
+                  "pm.collectionVariables.set(\"stock_doc_id\", d.id);",
+                  "pm.test(\"ได้เลขเอกสารรับเข้า\", () => pm.expect(d.doc_no).to.match(/^IN\\d{8}-\\d{4}$/));",
+                  "pm.test(\"มูลค่ารับเข้า = 4122\", () => pm.expect(d.total_cost).to.eql(4122));",
+                  "console.log(\"รับเข้า\", d.doc_no, \"มูลค่า\", d.total_cost, \"บาท\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "บันทึกเบิกใช้วัตถุดิบ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"เบิกไปเตรียมครัว\",\n  \"lines\": [\n    {\n      \"ingredient_sku\": \"ING-V01\",\n      \"qty\": 5\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stock/issue",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "issue"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"ได้เลขเอกสารเบิก\", () => pm.expect(pm.response.json().data.doc_no).to.match(/^IS\\d{8}-\\d{4}$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ปรับยอดตามที่นับได้จริง (เจ้าของร้าน)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ingredient_sku\": \"ING-V06\",\n  \"counted_qty\": 2,\n  \"note\": \"นับสต็อกสิ้นวัน\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stock/adjust",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "adjust"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ยอดหลังปรับ = 2\", () => pm.expect(pm.response.json().data.balance_after).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เอกสารรับเข้า/เบิกใช้ทั้งหมด",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stock/docs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "docs"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ดูเอกสารรายใบ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stock/docs/{{stock_doc_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "docs",
+                "{{stock_doc_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ประวัติการเคลื่อนไหววัตถุดิบทั้งหมด",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stock/movements?limit=50",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "ledger ทุกการเคลื่อนไหว: IN รับเข้า / ISSUE เบิกใช้ / SALE ตัดจากการขาย / RETURN คืน / ADJUST ปรับยอด"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เฉพาะที่ตัดจากการขาย",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stock/movements?type=SALE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "movements"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "SALE"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "แจ้งเตือนวัตถุดิบใกล้หมด (Low Stock Alert)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stock/low",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "low"
+              ]
+            },
+            "description": "วัตถุดิบที่ปริมาณลดลงถึงจุดขั้นต่ำที่กำหนด — ใช้แสดงข้อความแจ้งเตือนหน้าร้าน"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"มีฟิลด์ alert\", () => pm.expect(j).to.have.property(\"alert\"));",
+                  "console.log(j.message);",
+                  "if (j.count) console.log(\"รายการ:\", j.data.map(d => d.name_th + \" (เหลือ \" + d.qty_on_hand + \" \" + d.unit + \")\").join(\", \"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. รายงาน",
+      "item": [
+        {
+          "name": "ภาพรวมหน้าแรก (Dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/dashboard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "dashboard"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "console.log(\"ยอดขายวันนี้:\", d.today.sales, \"บาท |\", d.today.bills, \"บิล | วัตถุดิบใกล้หมด:\", d.low_stock_count, \"รายการ\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานยอดขายประจำวัน",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/sales?group=day",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "group",
+                  "value": "day"
+                }
+              ]
+            },
+            "description": "ไม่ระบุ from/to = วันนี้ | ระบุช่วงได้เช่น ?from=2026-08-01&to=2026-08-31"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "console.log(\"ยอดรวม:\", pm.response.json().totals);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานยอดขายรายสัปดาห์",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/sales?group=week&from=2026-08-01&to=2026-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "group",
+                  "value": "week"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-08-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานยอดขายรายเดือน",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/sales?group=month&from=2026-01-01&to=2026-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "group",
+                  "value": "month"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานอันดับเมนูขายดี",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/top-menu?limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "top-menu"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "if (d.length) console.log(\"อันดับ 1:\", d[0].name_th, \"ขายได้\", d[0].total_qty, \"| ยอด\", d[0].total_amount, \"บาท\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานวัตถุดิบคงเหลือ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/stock",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "stock"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "console.log(\"มูลค่าคงคลัง:\", pm.response.json().total_value, \"บาท\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานวัตถุดิบใกล้หมด",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/stock?only_low=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "stock"
+              ],
+              "query": [
+                {
+                  "key": "only_low",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานการรับเข้า / เบิกใช้วัตถุดิบ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/stock-movements?from=2026-01-01&to=2026-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "stock-movements"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานบิลขายรายใบ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/bills",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "bills"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "รายงานสัดส่วนช่องทางชำระเงิน",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/payment-methods",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "payment-methods"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ส่งออกเป็น CSV เปิดใน MS-Excel",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/top-menu?format=csv",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "top-menu"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            },
+            "description": "ทุกรายงานรองรับ ?format=csv — Postman จะให้กด Save Response เป็นไฟล์ .csv ได้"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"ได้ไฟล์ CSV\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/csv\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. ฝั่งลูกค้า (ไม่ต้องล็อกอิน)",
+      "description": "ลูกค้าสแกน QR ที่โต๊ะ แล้วเปิดหน้าเมนูสั่งอาหารเองได้",
+      "item": [
+        {
+          "name": "ดูเมนูอาหาร (ลูกค้า)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/public/menu",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "menu"
+              ]
+            },
+            "description": "เมนูที่เปิดขายอยู่ พร้อมธง sold_out เมื่อวัตถุดิบไม่พอ",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"มีรายการเมนู\", () => pm.expect(pm.response.json().count).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ดูสถานะโต๊ะของตัวเอง",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/public/tables/T12",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "tables",
+                "T12"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ลูกค้าสั่งอาหารเอง (เปิดบิลอัตโนมัติ)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guest_count\": 2,\n  \"items\": [\n    {\n      \"menu_sku\": \"MN-B01\",\n      \"qty\": 1\n    },\n    {\n      \"menu_sku\": \"MN-D01\",\n      \"qty\": 2\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/public/tables/T12/order",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "tables",
+                "T12",
+                "order"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 201\", () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"ยอด = 299 + 30 = 329\", () => pm.expect(j.order.grand_total).to.eql(329));",
+                  "pm.environment.set(\"cust_order_id\", j.order.id);",
+                  "pm.collectionVariables.set(\"cust_order_id\", j.order.id);",
+                  "console.log(j.message);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ลูกค้าสั่งเพิ่มระหว่างทาน",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"menu_sku\": \"MN-B16\",\n      \"qty\": 2\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/public/tables/T12/order",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "tables",
+                "T12",
+                "order"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"เป็นการสั่งรอบถัดไป\", () => pm.expect(pm.response.json().round_no).to.be.above(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "สรุปรายการและยอดเงินของโต๊ะ",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/public/tables/T12/bill",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "tables",
+                "T12",
+                "bill"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));",
+                  "console.log(\"ยอดรวม:\", pm.response.json().data.grand_total, \"บาท\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "QR พร้อมเพย์สำหรับชำระเงิน",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/public/tables/T12/qr",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "tables",
+                "T12",
+                "qr"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ลูกค้ากดเรียกเช็คบิล",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/public/tables/T12/bill",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "tables",
+                "T12",
+                "bill"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 หรือ 404\", () => pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "พนักงานรับชำระด้วย QR แล้วปิดบิล",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{cust_order_id}}\",\n  \"method\": \"QR\",\n  \"reference_no\": \"TXN-20260827-0099\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payments"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 หรือ 409\", () => pm.expect([201,409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. ทดสอบสิทธิ์และการดักข้อผิดพลาด",
+      "item": [
+        {
+          "name": "พนักงานปรับยอดสต็อก -> ต้องได้ 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ingredient_sku\": \"ING-M01\",\n  \"counted_qty\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stock/adjust",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stock",
+                "adjust"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{staff_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"แจ้งว่าไม่มีสิทธิ์\", () => pm.expect(pm.response.json().error).to.include(\"สิทธิ์\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ไม่แนบ token -> 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tables",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tables"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "โต๊ะไม่มีจริง -> 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_no\": \"T99\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ไม่ระบุโต๊ะ -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guest_count\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "บิลไม่มีจริง -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "999999"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เปิดบิลซ้ำโต๊ะที่มีบิลค้าง -> 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_no\": \"T12\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"409 หรือ 201 (ถ้าโต๊ะว่างอยู่)\", () => pm.expect([409,201]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "เส้นทางไม่มีจริง -> 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ไม่มีเส้นทางนี้",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ไม่มีเส้นทางนี้"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"สถานะ 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

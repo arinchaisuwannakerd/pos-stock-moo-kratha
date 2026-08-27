@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "POS & Stock (pos_stock)",
+      "Group": "Servers",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "pos_stock",
+      "Username": "pos_admin",
+      "SSLMode": "prefer",
+      "Comment": "ฐานข้อมูลระบบ POS & Stock ร้านย่างให้หมูกระทะ บ้านน้องโฟค"
+    }
+  }
+}

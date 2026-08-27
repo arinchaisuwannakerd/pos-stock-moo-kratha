@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pos_stock_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pos_admin
+      POSTGRES_PASSWORD: pos_pass123
+      POSTGRES_DB: pos_stock
+      TZ: Asia/Bangkok
+      PGTZ: Asia/Bangkok
+    ports:
+      - "5432:5432"
+    volumes:
+      - pos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pos_admin -d pos_stock"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pos_stock_pgadmin
+    restart: unless-stopped
+    environment:
+      # หมายเหตุ: ห้ามใช้โดเมน .local — pgAdmin ปฏิเสธเพราะเป็นชื่อสงวน แล้ว container จะวน restart
+      PGADMIN_DEFAULT_EMAIL: admin@posstock.com
+      PGADMIN_DEFAULT_PASSWORD: admin1234
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      # ลงทะเบียนเซิร์ฟเวอร์ฐานข้อมูลให้อัตโนมัติ ไม่ต้องเพิ่มเองในหน้าเว็บ
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+    volumes:
+      - ./docker/pgadmin-servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+volumes:
+  pos_pgdata:
