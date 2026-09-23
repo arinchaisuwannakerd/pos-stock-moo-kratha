@@ -23,7 +23,7 @@
 it project/
 ├── docker-compose.yml            ฐานข้อมูล PostgreSQL + pgAdmin
 ├── backend/
-│   ├── db/schema.sql             โครงสร้างตาราง 12 ตาราง + 3 view
+│   ├── db/schema.sql             โครงสร้างตาราง 13 ตาราง + 3 view
 │   ├── db/seed.sql               ข้อมูลตั้งต้น (20 โต๊ะ, 31 เมนู, 34 วัตถุดิบ, 95 สูตร BOM)
 │   ├── scripts/migrate.js        สร้างฐานข้อมูลและบัญชีผู้ใช้
 │   ├── scripts/demo-data.js      สร้างยอดขายย้อนหลังสำหรับสาธิตรายงาน
