@@ -12,6 +12,8 @@ export const pool = new pg.Pool({
   port: Number(process.env.PGPORT || 5432),
   database: process.env.PGDATABASE || 'pos_stock',
   user: process.env.PGUSER || 'pos_admin',
+  // ค่าเริ่มต้นตรงกับ docker-compose.yml สำหรับรันบนเครื่องตัวเองเท่านั้น
+  // ใช้งานจริงต้องกำหนด PGPASSWORD ในไฟล์ .env เสมอ
   password: process.env.PGPASSWORD || 'pos_pass123',
   max: 10,
   idleTimeoutMillis: 30000,

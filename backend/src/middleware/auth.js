@@ -1,7 +1,30 @@
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils.js';
 
-const SECRET = process.env.JWT_SECRET || 'dev-secret';
+/**
+ * กุญแจสำหรับเซ็น JWT
+ *
+ * โค้ดนี้เป็นโปรเจกต์เปิด ใครก็อ่านได้ ถ้าปล่อยให้ใช้ค่าเริ่มต้นที่เขียนไว้ในไฟล์
+ * ใครก็ปลอม token เป็นเจ้าของร้านได้ทันที จึงบังคับว่าตอนใช้งานจริงต้องตั้ง
+ * JWT_SECRET เองเสมอ ไม่เช่นนั้นเซิร์ฟเวอร์จะไม่ยอมเริ่มทำงาน
+ */
+const SECRET = (() => {
+  const fromEnv = process.env.JWT_SECRET;
+  if (fromEnv) return fromEnv;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'ไม่ได้ตั้งค่า JWT_SECRET — ห้ามใช้งานจริงโดยไม่กำหนดกุญแจของตัวเอง ' +
+      '(คัดลอก backend/.env.example เป็น backend/.env แล้วใส่ค่าสุ่มยาว ๆ)'
+    );
+  }
+
+  console.warn(
+    '\n  คำเตือน: ไม่พบ JWT_SECRET จึงใช้ค่าเริ่มต้นสำหรับการพัฒนาเท่านั้น' +
+    '\n  ก่อนนำขึ้นใช้งานจริง ให้สร้างไฟล์ backend/.env แล้วกำหนด JWT_SECRET ของตัวเอง\n'
+  );
+  return 'dev-only-insecure-secret';
+})();
 
 export function signToken(user) {
   return jwt.sign(
